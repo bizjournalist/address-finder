@@ -1,0 +1,50 @@
+:root {
+  --header-bg: #ffffff;
+  --border: #d7dce2;
+  --text: #1f2933;
+  --muted: #5f6b7a;
+  --accent: #1f6feb;
+  --accent-dark: #174ea6;
+  --panel-bg: #f7f9fc;
+  --warning-bg: #fff6d8;
+  --warning-border: #e0b84d;
+}
+* { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+}
+body { display: flex; flex-direction: column; }
+.app-header {
+  z-index: 1000;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.title-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+h1 { font-size: 1.15rem; margin: 0; line-height: 1.2; }
+.region-label { color: var(--muted); font-size: .9rem; }
+.search-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto; gap: 8px; margin-bottom: 10px; }
+input[type="search"] { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: .95rem; }
+button { border: 0; border-radius: 6px; padding: 9px 13px; background: var(--accent); color: #fff; font-size: .95rem; cursor: pointer; }
+button:hover { background: var(--accent-dark); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.secondary-button { background: #eef2f7; color: var(--text); }
+.secondary-button:hover { background: #dde5ef; }
+.result-panel { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px; font-size: .95rem; }
+.result-panel.warning { background: var(--warning-bg); border-color: var(--warning-border); }
+main { flex: 1; min-height: 0; }
+#map { width: 100%; height: 100%; min-height: 400px; }
+.app-footer { padding: 7px 12px; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--border); background: #fff; }
+.visually-hidden { position: absolute; left: -9999px; }
+.boundary-popup { line-height: 1.35; }
+.boundary-popup strong { display: block; margin-bottom: 2px; }
+@media (max-width: 680px) {
+  .title-row { display: block; }
+  .region-label { display: block; margin-top: 3px; }
+  .search-row { grid-template-columns: 1fr; }
+  button { width: 100%; }
+}

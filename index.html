@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Albany Region Municipal Boundary Lookup</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet CSS. If this does not load, tiles will appear scattered/misaligned. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="title-row">
+      <h1>Municipal Boundary Lookup</h1>
+      <span class="region-label">Albany region</span>
+    </div>
+
+    <form id="search-form" class="search-row">
+      <label for="address-input" class="visually-hidden">Search address or place</label>
+      <input id="address-input" type="search" placeholder="Search address, e.g. 123 Main St, Albany, NY" autocomplete="off" />
+      <button type="submit">Search</button>
+      <button type="button" id="reset-button" class="secondary-button">Reset</button>
+    </form>
+
+    <section id="result-panel" class="result-panel" aria-live="polite">
+      <strong>Result:</strong>
+      <span id="result-text">Search for an address to identify the municipality and county.</span>
+    </section>
+  </header>
+
+  <main>
+    <div id="map"></div>
+  </main>
+
+  <footer class="app-footer">
+    Boundary data from U.S. Census Bureau TIGER/Line files. For newsroom reference only; not a legal boundary determination.
+    Map tiles © OpenStreetMap contributors.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
