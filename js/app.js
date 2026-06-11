@@ -6,8 +6,8 @@ const DATA_URLS = {
 };
 
 const CORE_REGION_BOUNDS = [
-  [42.35, -74.15],
-  [43.35, -73.20]
+  [42.55, -74.00],
+  [43.10, -73.45]
 ];
 
 let map;
