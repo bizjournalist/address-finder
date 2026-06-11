@@ -157,8 +157,10 @@ function villageStyle() { return { color: "#bbbbbb", weight: 1.0, opacity: 0.75,
 function bindBoundaryPopup(layerType) {
   return function (feature, layer) {
     const props = feature.properties || {};
-    const name = getDisplayName(props);
-    layer.bindPopup(`<div class="boundary-popup"><strong>${escapeHtml(name || "Unnamed area")}</strong><span>${escapeHtml(layerType)}</span></div>`);
+    const name = props.NAME || props.name || props.Name || props.MUNI_NAME || "";
+    layer.bindPopup(
+      `<div class="boundary-popup"><strong>${escapeHtml(name || "Unnamed area")}</strong><span>${escapeHtml(layerType)}</span></div>`
+    );
   };
 }
 
