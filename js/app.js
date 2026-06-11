@@ -1,7 +1,8 @@
 const DATA_URLS = {
-  counties: "data/counties.geojson",
-  subdivisions: "data/county_subdivisions.geojson",
-  places: "data/places.geojson"
+  counties:  "data/counties.geojson",
+  towns:     "data/towns.geojson",
+  cities:    "data/cities.geojson",
+  villages:  "data/villages.geojson"
 };
 
 const CORE_REGION_BOUNDS = [
@@ -11,18 +12,20 @@ const CORE_REGION_BOUNDS = [
 
 let map;
 let searchMarker = null;
-let countiesGeojson = null;
-let subdivisionsGeojson = null;
-let placesGeojson = null;
-let countyLayer = null;
-let subdivisionLayer = null;
-let placeLayer = null;
+let countiesGeojson   = null;
+let townsGeojson      = null;
+let citiesGeojson     = null;
+let villagesGeojson   = null;
+let countyLayer       = null;
+let townLayer         = null;
+let cityLayer         = null;
+let villageLayer      = null;
 
-const resultPanel = document.getElementById("result-panel");
-const resultText = document.getElementById("result-text");
-const searchForm = document.getElementById("search-form");
+const resultPanel  = document.getElementById("result-panel");
+const resultText   = document.getElementById("result-text");
+const searchForm   = document.getElementById("search-form");
 const addressInput = document.getElementById("address-input");
-const resetButton = document.getElementById("reset-button");
+const resetButton  = document.getElementById("reset-button");
 
 init();
 
@@ -36,7 +39,7 @@ async function init() {
     addBoundaryLayers();
     setResult("Search for an address to identify the municipality and county.");
   } else {
-    setWarning("Boundary data did not load. Confirm that counties.geojson, county_subdivisions.geojson and places.geojson exist in the /data folder. If testing locally, use a local web server or GitHub Pages instead of opening index.html directly.");
+    setWarning("Boundary data did not load. Confirm that counties.geojson, towns.geojson, cities.geojson and villages.geojson exist in the /data folder. If testing locally, use a local web server or GitHub Pages instead of opening index.html directly.");
   }
 }
 
@@ -74,14 +77,16 @@ function bindEvents() {
 
 async function loadBoundaryData() {
   try {
-    const [counties, subdivisions, places] = await Promise.all([
+    const [counties, towns, cities, villages] = await Promise.all([
       fetchJson(DATA_URLS.counties),
-      fetchJson(DATA_URLS.subdivisions),
-      fetchJson(DATA_URLS.places)
+      fetchJson(DATA_URLS.towns),
+      fetchJson(DATA_URLS.cities),
+      fetchJson(DATA_URLS.villages)
     ]);
-    countiesGeojson = counties;
-    subdivisionsGeojson = subdivisions;
-    placesGeojson = places;
+    countiesGeojson  = counties;
+    townsGeojson     = towns;
+    citiesGeojson    = cities;
+    villagesGeojson  = villages;
     return true;
   } catch (error) {
     console.error("Boundary data load error:", error);
@@ -96,20 +101,23 @@ async function fetchJson(url) {
 }
 
 function addBoundaryLayers() {
-  countyLayer = L.geoJSON(countiesGeojson, { style: countyStyle, onEachFeature: bindBoundaryPopup("County") }).addTo(map);
-  subdivisionLayer = L.geoJSON(subdivisionsGeojson, { style: subdivisionStyle, onEachFeature: bindBoundaryPopup("Town/City") }).addTo(map);
-  placeLayer = L.geoJSON(placesGeojson, { style: placeStyle, onEachFeature: bindBoundaryPopup("Village/Place") }).addTo(map);
+  countyLayer  = L.geoJSON(countiesGeojson,  { style: countyStyle,  onEachFeature: bindBoundaryPopup("County") }).addTo(map);
+  townLayer    = L.geoJSON(townsGeojson,     { style: townStyle,    onEachFeature: bindBoundaryPopup("Town") }).addTo(map);
+  cityLayer    = L.geoJSON(citiesGeojson,    { style: cityStyle,    onEachFeature: bindBoundaryPopup("City") }).addTo(map);
+  villageLayer = L.geoJSON(villagesGeojson,  { style: villageStyle, onEachFeature: bindBoundaryPopup("Village") }).addTo(map);
 
   L.control.layers(null, {
-    "Counties": countyLayer,
-    "Towns/Cities": subdivisionLayer,
-    "Villages/Places": placeLayer
+    "Counties":  countyLayer,
+    "Towns":     townLayer,
+    "Cities":    cityLayer,
+    "Villages":  villageLayer
   }, { collapsed: false }).addTo(map);
 }
 
-function countyStyle() { return { color: "#222222", weight: 2.4, opacity: 0.95, fillOpacity: 0 }; }
-function subdivisionStyle() { return { color: "#2f6fbd", weight: 1.35, opacity: 0.85, fillColor: "#2f6fbd", fillOpacity: 0.035 }; }
-function placeStyle() { return { color: "#b04a00", weight: 1.4, opacity: 0.9, dashArray: "4 3", fillColor: "#f2994a", fillOpacity: 0.06 }; }
+function countyStyle()  { return { color: "#222222", weight: 2.4,  opacity: 0.95, fillOpacity: 0 }; }
+function townStyle()    { return { color: "#2f6fbd", weight: 1.35, opacity: 0.85, fillColor: "#2f6fbd", fillOpacity: 0.035 }; }
+function cityStyle()    { return { color: "#6a2fbd", weight: 1.5,  opacity: 0.9,  fillColor: "#6a2fbd", fillOpacity: 0.05 }; }
+function villageStyle() { return { color: "#b04a00", weight: 1.4,  opacity: 0.9,  dashArray: "4 3", fillColor: "#f2994a", fillOpacity: 0.06 }; }
 
 function bindBoundaryPopup(layerType) {
   return function (feature, layer) {
@@ -136,8 +144,11 @@ async function handleSearch(query) {
     const lookup = lookupJurisdictions(lon, lat);
     const message = formatLookupResult(lookup, matchedAddress);
 
-    if (lookup.county || lookup.subdivision || lookup.place) setResult(message);
-    else setWarning(message);
+    if (lookup.county || lookup.town || lookup.city || lookup.village) {
+      setResult(message);
+    } else {
+      setWarning(message);
+    }
   } catch (error) {
     console.error("Search error:", error);
     setWarning("Search failed. Check the address and try again.");
@@ -182,9 +193,10 @@ function showSearchMarker(lat, lon, matchedAddress) {
 function lookupJurisdictions(lon, lat) {
   const point = turf.point([lon, lat]);
   return {
-    county: findContainingFeature(point, countiesGeojson),
-    subdivision: findContainingFeature(point, subdivisionsGeojson),
-    place: findContainingFeature(point, placesGeojson)
+    county:  findContainingFeature(point, countiesGeojson),
+    town:    findContainingFeature(point, townsGeojson),
+    city:    findContainingFeature(point, citiesGeojson),
+    village: findContainingFeature(point, villagesGeojson)
   };
 }
 
@@ -204,26 +216,26 @@ function findContainingFeature(point, featureCollection) {
 }
 
 function formatLookupResult(lookup, matchedAddress) {
-  const countyName = lookup.county ? cleanCountyName(getDisplayName(lookup.county.properties)) : null;
-  const subdivisionName = lookup.subdivision ? cleanMunicipalName(getDisplayName(lookup.subdivision.properties)) : null;
-  const placeName = lookup.place ? cleanMunicipalName(getDisplayName(lookup.place.properties)) : null;
-  const placeType = lookup.place ? inferPlaceType(lookup.place.properties) : null;
-  const subdivisionType = lookup.subdivision ? inferSubdivisionType(lookup.subdivision.properties) : null;
+  const countyName  = lookup.county  ? cleanCountyName(getDisplayName(lookup.county.properties))   : null;
+  const townName    = lookup.town    ? cleanMunicipalName(getDisplayName(lookup.town.properties))   : null;
+  const cityName    = lookup.city    ? cleanMunicipalName(getDisplayName(lookup.city.properties))   : null;
+  const villageName = lookup.village ? cleanMunicipalName(getDisplayName(lookup.village.properties)): null;
 
-  if (!countyName && !subdivisionName && !placeName) {
+  if (!countyName && !townName && !cityName && !villageName) {
     return `Searched address: ${matchedAddress}. This location is outside the supported Albany-region boundary file.`;
   }
 
   const parts = [];
-  if (placeName && subdivisionName && !sameName(placeName, subdivisionName)) {
-    parts.push(`${titleCase(placeType || "place")} of ${placeName}`);
-    parts.push(`${titleCase(subdivisionType || "town/city")} of ${subdivisionName}`);
-  } else if (subdivisionName) {
-    parts.push(`${titleCase(subdivisionType || "municipality")} of ${subdivisionName}`);
-  } else if (placeName) {
-    parts.push(`${titleCase(placeType || "place")} of ${placeName}`);
-  }
-  if (countyName) parts.push(`${countyName} County`);
+
+  // Village (overlaid on a town)
+  if (villageName) parts.push(`Village of ${villageName}`);
+
+  // Town or city — mutually exclusive in practice, but handle both gracefully
+  if (townName)    parts.push(`Town of ${townName}`);
+  if (cityName)    parts.push(`City of ${cityName}`);
+
+  if (countyName)  parts.push(`${countyName} County`);
+
   return `Searched address: ${matchedAddress}. This appears to be in ${parts.join(", ")}.`;
 }
 
@@ -231,34 +243,18 @@ function getDisplayName(props) {
   if (!props) return "";
   return props.NAMELSAD || props.NAME || props.name || props.Name || props.MUNI_NAME || props.MUNICIPALITY || props.COUNTY || "";
 }
-function cleanCountyName(name) { return String(name || "").replace(/\s+County$/i, "").trim(); }
-function cleanMunicipalName(name) { return String(name || "").replace(/\s+(town|city|village|CDP|county subdivision|borough)$/i, "").trim(); }
-function inferPlaceType(props) {
-  const name = getDisplayName(props).toLowerCase();
-  const lsad = String(props?.LSAD || props?.lsad || "").toLowerCase();
-  if (name.includes("village")) return "village";
-  if (name.includes("city")) return "city";
-  if (name.includes("cdp")) return "CDP";
-  if (lsad === "47") return "village";
-  if (lsad === "25") return "city";
-  return "place";
+
+function cleanCountyName(name)     { return String(name || "").replace(/\s+County$/i, "").trim(); }
+function cleanMunicipalName(name)  { return String(name || "").replace(/\s+(town|city|village|CDP|county subdivision|borough)$/i, "").trim(); }
+
+function setResult(message)  { resultPanel.classList.remove("warning"); resultText.textContent = message; }
+function setWarning(message) { resultPanel.classList.add("warning");    resultText.textContent = message; }
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&",  "&amp;")
+    .replaceAll("<",  "&lt;")
+    .replaceAll(">",  "&gt;")
+    .replaceAll('"',  "&quot;")
+    .replaceAll("'",  "&#039;");
 }
-function inferSubdivisionType(props) {
-  const name = getDisplayName(props).toLowerCase();
-  const lsad = String(props?.LSAD || props?.lsad || "").toLowerCase();
-  if (name.includes("town")) return "town";
-  if (name.includes("city")) return "city";
-  if (lsad === "43") return "town";
-  if (lsad === "25") return "city";
-  return "municipality";
-}
-function sameName(a, b) { return normalizeName(a) === normalizeName(b); }
-function normalizeName(value) { return String(value || "").toLowerCase().replace(/\b(town|city|village|county|cdp|of)\b/g, "").replace(/[^a-z0-9]/g, "").trim(); }
-function titleCase(value) {
-  if (!value) return "";
-  if (value.toUpperCase() === "CDP") return "CDP";
-  return value.split("/").map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join("/");
-}
-function setResult(message) { resultPanel.classList.remove("warning"); resultText.textContent = message; }
-function setWarning(message) { resultPanel.classList.add("warning"); resultText.textContent = message; }
-function escapeHtml(value) { return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
