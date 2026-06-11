@@ -125,9 +125,9 @@ async function handleSearch(query) {
   submitButton.disabled = true;
 
   try {
-    const geocodeResult = await geocodeWithCensus(query);
+    const geocodeResult = await geocodeWithNominatim(query);
     if (!geocodeResult) {
-      setWarning("No Census Geocoder match found. Try adding city, state or ZIP.");
+      setWarning("No match found. Try adding city, state or ZIP code.");
       return;
     }
 
@@ -146,30 +146,36 @@ async function handleSearch(query) {
   }
 }
 
-async function geocodeWithCensus(query) {
-  const url = new URL("https://geocoding.geo.census.gov/geocoder/locations/onelineaddress");
-  url.searchParams.set("address", query);
-  url.searchParams.set("benchmark", "Public_AR_Current");
+async function geocodeWithNominatim(query) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("q", query);
   url.searchParams.set("format", "json");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("countrycodes", "us");
 
-  const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`Census geocoder error: ${response.status}`);
+  const response = await fetch(url.toString(), {
+    headers: {
+      "Accept-Language": "en",
+      "User-Agent": "Albany-Municipal-Lookup/1.0 (newsroom reference tool)"
+    }
+  });
+  if (!response.ok) throw new Error(`Nominatim error: ${response.status}`);
 
   const data = await response.json();
-  const matches = data?.result?.addressMatches || [];
-  if (!matches.length) return null;
+  if (!data.length) return null;
 
-  const best = matches[0];
-  const coords = best.coordinates;
-  if (!coords || typeof coords.x !== "number" || typeof coords.y !== "number") return null;
-
-  return { lon: coords.x, lat: coords.y, matchedAddress: best.matchedAddress || query };
+  const best = data[0];
+  return {
+    lon: parseFloat(best.lon),
+    lat: parseFloat(best.lat),
+    matchedAddress: query
+  };
 }
 
 function showSearchMarker(lat, lon, matchedAddress) {
   if (searchMarker) map.removeLayer(searchMarker);
   searchMarker = L.marker([lat, lon]).addTo(map);
-  searchMarker.bindPopup(`<strong>Matched address</strong><br>${escapeHtml(matchedAddress)}`).openPopup();
+  searchMarker.bindPopup(`<strong>Searched address</strong><br>${escapeHtml(matchedAddress)}`).openPopup();
   map.setView([lat, lon], 14);
 }
 
@@ -205,7 +211,7 @@ function formatLookupResult(lookup, matchedAddress) {
   const subdivisionType = lookup.subdivision ? inferSubdivisionType(lookup.subdivision.properties) : null;
 
   if (!countyName && !subdivisionName && !placeName) {
-    return `Matched address: ${matchedAddress}. This location is outside the supported Albany-region boundary file.`;
+    return `Searched address: ${matchedAddress}. This location is outside the supported Albany-region boundary file.`;
   }
 
   const parts = [];
@@ -218,7 +224,7 @@ function formatLookupResult(lookup, matchedAddress) {
     parts.push(`${titleCase(placeType || "place")} of ${placeName}`);
   }
   if (countyName) parts.push(`${countyName} County`);
-  return `Matched address: ${matchedAddress}. This appears to be in ${parts.join(", ")}.`;
+  return `Searched address: ${matchedAddress}. This appears to be in ${parts.join(", ")}.`;
 }
 
 function getDisplayName(props) {
