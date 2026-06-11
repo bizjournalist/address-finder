@@ -7,6 +7,8 @@
 
   <!-- Leaflet CSS. If this does not load, tiles will appear scattered/misaligned. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Tabler Icons — used for the copy button icon -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -20,12 +22,18 @@
       <label for="address-input" class="visually-hidden">Search address or place</label>
       <input id="address-input" type="search" placeholder="Search address, e.g. 123 Main St, Albany, NY" autocomplete="off" />
       <button type="submit">Search</button>
-      <button type="button" id="reset-button" class="secondary-button">Reset</button>
+      <button type="button" id="reset-button">Reset</button>
     </form>
 
+    <!-- FIX 3: Result panel now contains two sub-elements rendered by JS:
+         .result-primary for the jurisdiction answer
+         .result-address for the echoed search query
+         The copy button is shown/hidden by JS after a successful lookup. -->
     <section id="result-panel" class="result-panel" aria-live="polite">
-      <strong>Result:</strong>
       <span id="result-text">Search for an address to identify the municipality and county.</span>
+      <button type="button" id="copy-button" aria-label="Copy result to clipboard">
+        <i class="ti ti-copy" aria-hidden="true"></i> Copy
+      </button>
     </section>
   </header>
 
@@ -34,12 +42,12 @@
   </main>
 
   <footer class="app-footer">
-    Boundary data from U.S. Census Bureau TIGER/Line files. For newsroom reference only; not a legal boundary determination.
-    Map tiles © OpenStreetMap contributors.
+    <span>Boundary data from U.S. Census Bureau TIGER/Line files. For newsroom reference only; not a legal boundary determination.</span>
+    <span>Map tiles &copy; OpenStreetMap contributors &copy; CARTO</span>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
   <script src="js/app.js"></script>
 </body>
-</html> 
+</html>
