@@ -26,6 +26,7 @@ const resultText   = document.getElementById("result-text");
 const searchForm   = document.getElementById("search-form");
 const addressInput = document.getElementById("address-input");
 const resetButton  = document.getElementById("reset-button");
+const copyButton   = document.getElementById("copy-button");
 
 init();
 
@@ -37,21 +38,30 @@ async function init() {
   const loaded = await loadBoundaryData();
   if (loaded) {
     addBoundaryLayers();
-    setResult("Search for an address to identify the municipality and county.");
+    setResult(null);
   } else {
     setWarning("Boundary data did not load. Confirm that counties.geojson, towns.geojson, cities.geojson and villages.geojson exist in the /data folder. If testing locally, use a local web server or GitHub Pages instead of opening index.html directly.");
   }
 }
 
+// --- Map init -----------------------------------------------------------
+
 function initMap() {
   map = L.map("map", { zoomControl: true });
   map.fitBounds(CORE_REGION_BOUNDS);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+
+  // FIX 1: CartoDB Positron — low-contrast grey base map designed for
+  // data overlays. Replaces the busy default OpenStreetMap tile.
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(map);
+
   setTimeout(() => map.invalidateSize(), 100);
 }
+
+// --- Events -------------------------------------------------------------
 
 function bindEvents() {
   searchForm.addEventListener("submit", async (event) => {
@@ -71,9 +81,20 @@ function bindEvents() {
     }
     addressInput.value = "";
     map.fitBounds(CORE_REGION_BOUNDS);
-    setResult("Search for an address to identify the municipality and county.");
+    setResult(null);
+  });
+
+  copyButton.addEventListener("click", () => {
+    const text = resultText.dataset.copyText;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      copyButton.textContent = "Copied";
+      setTimeout(() => { copyButton.innerHTML = '<i class="ti ti-copy"></i> Copy'; }, 1800);
+    });
   });
 }
+
+// --- Data loading -------------------------------------------------------
 
 async function loadBoundaryData() {
   try {
@@ -100,11 +121,17 @@ async function fetchJson(url) {
   return response.json();
 }
 
+// --- Layer rendering ----------------------------------------------------
+
 function addBoundaryLayers() {
-  countyLayer  = L.geoJSON(countiesGeojson,  { style: countyStyle,  onEachFeature: bindBoundaryPopup("County") }).addTo(map);
-  townLayer    = L.geoJSON(townsGeojson,     { style: townStyle,    onEachFeature: bindBoundaryPopup("Town") }).addTo(map);
-  cityLayer    = L.geoJSON(citiesGeojson,    { style: cityStyle,    onEachFeature: bindBoundaryPopup("City") }).addTo(map);
-  villageLayer = L.geoJSON(villagesGeojson,  { style: villageStyle, onEachFeature: bindBoundaryPopup("Village") }).addTo(map);
+  countyLayer  = L.geoJSON(countiesGeojson,  { style: countyStyle,  onEachFeature: bindBoundaryPopup("County") });
+  townLayer    = L.geoJSON(townsGeojson,     { style: townStyle,    onEachFeature: bindBoundaryPopup("Town") });
+  cityLayer    = L.geoJSON(citiesGeojson,    { style: cityStyle,    onEachFeature: bindBoundaryPopup("City") });
+  villageLayer = L.geoJSON(villagesGeojson,  { style: villageStyle, onEachFeature: bindBoundaryPopup("Village") });
+
+  // FIX 4 (revised): Only counties visible by default. Towns, cities and
+  // villages are available in the layer control but start hidden.
+  countyLayer.addTo(map);
 
   L.control.layers(null, {
     "Counties":  countyLayer,
@@ -114,10 +141,24 @@ function addBoundaryLayers() {
   }, { collapsed: false }).addTo(map);
 }
 
-function countyStyle()  { return { color: "#222222", weight: 2.4,  opacity: 0.95, fillOpacity: 0 }; }
-function townStyle()    { return { color: "#2f6fbd", weight: 1.35, opacity: 0.85, fillColor: "#2f6fbd", fillOpacity: 0.035 }; }
-function cityStyle()    { return { color: "#6a2fbd", weight: 1.5,  opacity: 0.9,  fillColor: "#6a2fbd", fillOpacity: 0.05 }; }
-function villageStyle() { return { color: "#b04a00", weight: 1.4,  opacity: 0.9,  dashArray: "4 3", fillColor: "#f2994a", fillOpacity: 0.06 }; }
+// FIX 2: Layer styles
+// Counties: heavy dark stroke, no fill — structural frame.
+// Towns and cities: equal weight (1.2px), same low opacity — same
+// functional significance for this tool, distinguished only by color.
+// Villages: same weight as towns/cities, solid (not dashed), warm amber.
+
+function countyStyle()  {
+  return { color: "#1a1a1a", weight: 2.2, opacity: 0.85, fillOpacity: 0 };
+}
+function townStyle()    {
+  return { color: "#3a6db0", weight: 1.2, opacity: 0.6, fillOpacity: 0 };
+}
+function cityStyle()    {
+  return { color: "#7040b8", weight: 1.2, opacity: 0.6, fillOpacity: 0 };
+}
+function villageStyle() {
+  return { color: "#c25a18", weight: 1.2, opacity: 0.65, fillColor: "#c25a18", fillOpacity: 0.03 };
+}
 
 function bindBoundaryPopup(layerType) {
   return function (feature, layer) {
@@ -127,8 +168,10 @@ function bindBoundaryPopup(layerType) {
   };
 }
 
+// --- Search -------------------------------------------------------------
+
 async function handleSearch(query) {
-  setResult("Searching…");
+  setSearching();
   const submitButton = searchForm.querySelector('button[type="submit"]');
   submitButton.disabled = true;
 
@@ -142,12 +185,11 @@ async function handleSearch(query) {
     const { lat, lon, matchedAddress } = geocodeResult;
     showSearchMarker(lat, lon, matchedAddress);
     const lookup = lookupJurisdictions(lon, lat);
-    const message = formatLookupResult(lookup, matchedAddress);
 
     if (lookup.county || lookup.town || lookup.city || lookup.village) {
-      setResult(message);
+      setResult(lookup, matchedAddress);
     } else {
-      setWarning(message);
+      setWarning(`Outside supported boundary. Try a more specific address in the Albany region.`);
     }
   } catch (error) {
     console.error("Search error:", error);
@@ -183,12 +225,22 @@ async function geocodeWithNominatim(query) {
   };
 }
 
+// FIX 5: Custom circle marker — high contrast red with white ring so it
+// stands out clearly against the blue town boundary lines.
 function showSearchMarker(lat, lon, matchedAddress) {
   if (searchMarker) map.removeLayer(searchMarker);
-  searchMarker = L.marker([lat, lon]).addTo(map);
+  searchMarker = L.circleMarker([lat, lon], {
+    radius: 8,
+    color: "#fff",
+    weight: 2.5,
+    fillColor: "#dc2626",
+    fillOpacity: 1
+  }).addTo(map);
   searchMarker.bindPopup(`<strong>Searched address</strong><br>${escapeHtml(matchedAddress)}`).openPopup();
   map.setView([lat, lon], 14);
 }
+
+// --- Lookup -------------------------------------------------------------
 
 function lookupJurisdictions(lon, lat) {
   const point = turf.point([lon, lat]);
@@ -215,40 +267,69 @@ function findContainingFeature(point, featureCollection) {
   return null;
 }
 
-function formatLookupResult(lookup, matchedAddress) {
-  const countyName  = lookup.county  ? cleanCountyName(getDisplayName(lookup.county.properties))   : null;
-  const townName    = lookup.town    ? cleanMunicipalName(getDisplayName(lookup.town.properties))   : null;
-  const cityName    = lookup.city    ? cleanMunicipalName(getDisplayName(lookup.city.properties))   : null;
-  const villageName = lookup.village ? cleanMunicipalName(getDisplayName(lookup.village.properties)): null;
+// --- Result display -----------------------------------------------------
 
-  if (!countyName && !townName && !cityName && !villageName) {
-    return `Searched address: ${matchedAddress}. This location is outside the supported Albany-region boundary file.`;
+// FIX 3: Structured result panel. Instead of a single run-on sentence,
+// the result now sets distinct data attributes that index.html renders as
+// a primary jurisdiction line and a secondary address line. A plain-text
+// copy string is stored in data-copy-text for the copy button.
+
+function setResult(lookup, matchedAddress) {
+  resultPanel.classList.remove("warning");
+  copyButton.style.display = "none";
+
+  if (!lookup) {
+    resultText.innerHTML = "Search for an address to identify the municipality and county.";
+    resultText.dataset.copyText = "";
+    return;
   }
 
+  const countyName  = lookup.county  ? cleanCountyName(getDisplayName(lookup.county.properties))    : null;
+  const townName    = lookup.town    ? cleanMunicipalName(getDisplayName(lookup.town.properties))    : null;
+  const cityName    = lookup.city    ? cleanMunicipalName(getDisplayName(lookup.city.properties))    : null;
+  const villageName = lookup.village ? cleanMunicipalName(getDisplayName(lookup.village.properties)) : null;
+
   const parts = [];
-
-  // Village (overlaid on a town)
   if (villageName) parts.push(`Village of ${villageName}`);
-
-  // Town or city — mutually exclusive in practice, but handle both gracefully
   if (townName)    parts.push(`Town of ${townName}`);
   if (cityName)    parts.push(`City of ${cityName}`);
-
   if (countyName)  parts.push(`${countyName} County`);
 
-  return `Searched address: ${matchedAddress}. This appears to be in ${parts.join(", ")}.`;
+  const primaryLine = parts.join(", ");
+  const copyText    = `${primaryLine} — ${matchedAddress}`;
+
+  resultText.innerHTML =
+    `<span class="result-primary">${escapeHtml(primaryLine)}</span>` +
+    `<span class="result-address">${escapeHtml(matchedAddress)}</span>`;
+  resultText.dataset.copyText = copyText;
+
+  copyButton.innerHTML = '<i class="ti ti-copy" aria-hidden="true"></i> Copy';
+  copyButton.style.display = "inline-flex";
 }
+
+function setSearching() {
+  resultPanel.classList.remove("warning");
+  resultText.innerHTML = "Searching…";
+  resultText.dataset.copyText = "";
+  copyButton.style.display = "none";
+}
+
+function setWarning(message) {
+  resultPanel.classList.add("warning");
+  resultText.innerHTML = escapeHtml(message);
+  resultText.dataset.copyText = "";
+  copyButton.style.display = "none";
+}
+
+// --- Helpers ------------------------------------------------------------
 
 function getDisplayName(props) {
   if (!props) return "";
   return props.NAMELSAD || props.NAME || props.name || props.Name || props.MUNI_NAME || props.MUNICIPALITY || props.COUNTY || "";
 }
 
-function cleanCountyName(name)     { return String(name || "").replace(/\s+County$/i, "").trim(); }
-function cleanMunicipalName(name)  { return String(name || "").replace(/\s+(town|city|village|CDP|county subdivision|borough)$/i, "").trim(); }
-
-function setResult(message)  { resultPanel.classList.remove("warning"); resultText.textContent = message; }
-function setWarning(message) { resultPanel.classList.add("warning");    resultText.textContent = message; }
+function cleanCountyName(name)    { return String(name || "").replace(/\s+County$/i, "").trim(); }
+function cleanMunicipalName(name) { return String(name || "").replace(/\s+(town|city|village|CDP|county subdivision|borough)$/i, "").trim(); }
 
 function escapeHtml(value) {
   return String(value || "")
