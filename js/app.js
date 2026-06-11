@@ -150,15 +150,9 @@ function addBoundaryLayers() {
 function countyStyle()  {
   return { color: "#1a1a1a", weight: 2.2, opacity: 0.85, fillOpacity: 0 };
 }
-function townStyle()    {
-  return { color: "#3a6db0", weight: 1.2, opacity: 0.6, fillOpacity: 0 };
-}
-function cityStyle()    {
-  return { color: "#7040b8", weight: 1.2, opacity: 0.6, fillOpacity: 0 };
-}
-function villageStyle() {
-  return { color: "#c25a18", weight: 1.2, opacity: 0.65, fillColor: "#c25a18", fillOpacity: 0.03 };
-}
+function townStyle()    { return { color: "#888888", weight: 1.1, opacity: 0.6,  fillOpacity: 0 }; }
+function cityStyle()    { return { color: "#888888", weight: 1.1, opacity: 0.6,  fillOpacity: 0 }; }
+function villageStyle() { return { color: "#bbbbbb", weight: 1.0, opacity: 0.75, fillOpacity: 0 }; }
 
 function bindBoundaryPopup(layerType) {
   return function (feature, layer) {
